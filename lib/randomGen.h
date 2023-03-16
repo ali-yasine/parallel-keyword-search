@@ -15,3 +15,4 @@ class RandomGen {
         }
         int operator()() { return dist(gen); }
 };
+#endif

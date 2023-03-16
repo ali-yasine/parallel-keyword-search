@@ -3,16 +3,39 @@
 #include <unordered_map>
 #include <vector>
 #include <cmath>
+#include <queue>
+#include <algorithm>
+#include <iostream>
 
-void getVertexInformativeness(CooGraph* coo, double* vertex_w) {
-    unsigned int n = coo->num_nodes;
-    unsigned int num_incident[n] = {0};
+#include "randomGen.h"
+using std::vector;  
+using std::unordered_map;
+
+struct pair_hash {
+    template <class T1, class T2>
+    std::size_t operator () (const std::pair<T1, T2>& p) const {
+        auto h1 = std::hash<T1>{}(p.first);
+        auto h2 = std::hash<T2>{}(p.second);
+        return h1 ^ h2;
+    }
+};
+
+struct pair_equal {
+    template <class T1, class T2>
+    bool operator () (const std::pair<T1, T2>& lhs, const std::pair<T1, T2>& rhs) const {
+        return lhs.first == rhs.first && lhs.second == rhs.second;
+    }
+};
+
+void getVertexInformativeness(const CsrGraph* coo, float* vertex_w) {
+    int n = coo->num_nodes;
+    int num_incident[n] = {0};
     //maps (vertex, label) to number of edges of that type incident to that vertex
-    std::unordered_map<std::pair<unsigned int, unsigned int>, unsigned int> vertex_type_count {};
+    std::unordered_map<std::pair<int, int>, int, pair_hash, pair_equal> vertex_type_count {};
     //maps vertex to number of types of edges incident to that vertex
-    std::unordered_map<unsigned int, vector<unsigned int>> vertex_types {};
+    std::unordered_map<int, vector<int>> vertex_types {};
 
-    for(unsigned int i = 0; i < coo->num_edges; ++i) {
+    for(int i = 0; i < coo->num_edges; ++i) {
 
         num_incident[coo->col_indices[i]]++;
 
@@ -30,40 +53,46 @@ void getVertexInformativeness(CooGraph* coo, double* vertex_w) {
             vertex_types[coo->col_indices[i]] = {coo->edge_labels[i]};
         }
     }
-    for(unsigned int i = 0; i < n; ++i) [
-        double w_i = 0;
+
+    for(int i = 0; i < n; ++i) {
+
+        float w_i = 0;
+        
         for(auto j : vertex_types[i]) {
-            w_i += (double) vertex_type_count[std::make_pair(i, j)] * log2((double) vertex_type_count[std::make_pair(i, j)] / (double) num_incident[i]);
+            w_i += (float) vertex_type_count[std::make_pair(i, j)] * log2((float) vertex_type_count[std::make_pair(i, j)] / (float) num_incident[i]);
         }
         vertex_w[i] = w_i;
-    ]
-    double min_w = std::min_element(vertex_w, vertex_w + n);
-    double max_w = std::max_element(vertex_w, vertex_w + n);
-    for(unsigned int i = 0; i < n; ++i) {
+    }
+    
+    float min_w = *std::min_element(vertex_w, vertex_w + n);
+    float max_w = *std::max_element(vertex_w, vertex_w + n);
+    for(int i = 0; i < n; ++i) {
         vertex_w[i] = (vertex_w[i] - min_w) / (max_w - min_w);
-    }  
+    }
 }
 
-double averageDistanceInGraph(CsrGraph* graph, unsigned int num_samples=10000) {
+float averageDistanceInGraph(const CsrGraph* graph, int num_samples=10000) {
     //get average number of hops needed to reach a vertex from another vertex by sampling
-    unsigned int n = graph->num_nodes;
+    int n = graph->num_nodes;
     RandomGen rand_gen {0, n - 1};
-    for(unsigned int i = 0; i < num_samples; ++i) {
-        unsigned int src = rand_gen();
-        unsigned int dst = rand_gen();
-        unsigned int num_hops = 0;
+    float total_hops = 0;
+
+    for(int i = 0; i < num_samples; ++i) {
+        int src = rand_gen();
+        int dst = rand_gen();
+        int num_hops = 0;
 
         //bfs
-        std::queue<unsigned int> q;
+        std::queue<int> q;
         q.push(src);
         bool visited[n] = {false};
         visited[src] = true;
         while(!q.empty()) {
-            unsigned int u = q.front();
+            int u = q.front();
             q.pop();
             num_hops++;
-            for(unsigned int j = graph->row_offsets[u]; j < graph->row_offsets[u + 1]; ++j) {
-                unsigned int v = graph->col_indices[j];
+            for(int j = graph->row_offsets[u]; j < graph->row_offsets[u + 1]; ++j) {
+                int v = graph->col_indices[j];
                 if(!visited[v]) {
                     visited[v] = true;
                     q.push(v);
@@ -73,24 +102,26 @@ double averageDistanceInGraph(CsrGraph* graph, unsigned int num_samples=10000) {
                 }
             }
         }
-        avg_hops += num_hops;
+        total_hops += num_hops;
     }
-    return avg_hops / num_samples;   
+    return total_hops / num_samples;   
 }
 
-void writeGraphIndex(const char* filename, double* vertex_w, double avg_hops) {
+void writeGraphIndex(const char* filename, float* vertex_w, float avg_hops, int graph_size) {
     FILE* fp = fopen(filename, "w");
     fprintf(fp, "%lf\n", avg_hops);
-    for(unsigned int i = 0; i < n; ++i) {
-        fprintf(fp, "%u: %lf ",i, vertex_w[i]);
+    for(int i = 0; i < graph_size; ++i) {
+        fprintf(fp, "%d: %f ", i, vertex_w[i]);
     }
     fclose(fp);
 }
-void readGraphIndex(const char* filename, double* vertex_w, double* avg_hops) {
+
+void readGraphIndex(const char* filename, float* vertex_w, float& avg_hops, int graph_size) {
     FILE* fp = fopen(filename, "r");
-    fscanf(fp, "%lf\n", avg_hops);
-    for(unsigned int i = 0; i < n; ++i) {
-        fscanf(fp, "%u: %lf ",i, vertex_w[i]);
+    fscanf(fp, "%f\n", &avg_hops);
+    int temp;
+    for(int i = 0; i < graph_size; ++i) {
+        fscanf(fp, "%d: %f ", &temp, &vertex_w[i]);
     }
     fclose(fp);
 }
