@@ -5,4 +5,7 @@
 
 void pks(const CsrGraph* graph, const int* query,const int query_num, CsrGraph** result, const int k, const float alpha = 0.1f, const char* filename = nullptr);
 
+int getActivationLevel(float node_weight, float alpha, float avg_hops);
+
+
 #endif
