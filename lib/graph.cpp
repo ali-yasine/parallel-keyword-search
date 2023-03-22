@@ -99,7 +99,8 @@ void readGraph(const char* filename, CooGraph* graph, std::unordered_map<int, st
 
     // Initialize graph
     graph->num_nodes = next_node_id;
-    graph->num_edges = 2 * num_edges;
+    num_edges = 2 * num_edges;
+    graph->num_edges = num_edges;
     graph->row_indices = (int*) malloc(num_edges * sizeof(int));
 
     //2 * since we count both directions of edges
@@ -112,8 +113,7 @@ void readGraph(const char* filename, CooGraph* graph, std::unordered_map<int, st
 
     while (std::getline(file, line)) {
         
-        std::cerr << "num_edges: " << graph->num_edges << "\t" << "curr_edge: " << curr_edge << "\n";
-
+    
         stringstream ss {line};
         ss >> subj >> edge;
         std::getline(ss, pred);
