@@ -1,10 +1,10 @@
-#include "graph.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <wchar.h>
 #include <locale.h>
 #include <unordered_map>
+#include "graph.h"
 
 using std::string;
 using std::fstream;
@@ -73,6 +73,10 @@ void readGraph(const char* filename, CooGraph* graph, std::unordered_map<int, st
         ss >> subj >> edge;
         std::getline(ss, pred);
 
+        if (pred == "" || pred == " ") {
+            continue;
+        }
+
         if (node_map_reverse->find(subj) == node_map_reverse->end()) {
             node_map->insert({next_node_id, subj});
             node_map_reverse->insert({subj, next_node_id});
@@ -110,7 +114,6 @@ void readGraph(const char* filename, CooGraph* graph, std::unordered_map<int, st
     file = fstream {filename};
     int curr_edge = 0;
 
-
     while (std::getline(file, line)) {
         
     
@@ -118,6 +121,10 @@ void readGraph(const char* filename, CooGraph* graph, std::unordered_map<int, st
         ss >> subj >> edge;
         std::getline(ss, pred);
         
+        if (pred == "" || pred == " ") {
+            continue;
+        }
+
         int subj_id = node_map_reverse->at(subj);
         int pred_id = node_map_reverse->at(pred);
         int edge_id = edge_map_reverse->at(edge);
@@ -150,4 +157,50 @@ void freeGraph(CsrGraph* graph) {
     free(graph->edge_labels);
 
     free(graph);
+}
+
+void printGraph(const CooGraph* graph) {
+    for (int i = 0; i < graph->num_edges; ++i) {
+        std::cout << graph->row_indices[i] << " " << graph->col_indices[i] << " " << graph->edge_labels[i] << "\n";
+    }
+}
+
+void printGraph(const CooGraph* graph, std::unordered_map<int, string>& node_map, std::unordered_map<int, string>& edge_map, const char* filename) {
+    //print to file if filename is not null else print to stdout
+    std::ofstream file;
+    if (filename) {
+        file.open(filename);
+    }
+    std::ostream& out = filename != nullptr ? file : std::cout;
+    for (int i = 0; i < graph->num_edges; i += 2) {
+        out << node_map[graph->row_indices[i]] << " " << edge_map[graph->edge_labels[i]] << " " << node_map[graph->col_indices[i]] << "\n";
+    }
+    if (filename) {
+        file.close();
+    }
+}
+
+void printGraph(const CsrGraph* graph) {
+    for (int i = 0; i < graph->num_nodes; ++i) {
+        for (int j = graph->row_offsets[i]; j < graph->row_offsets[i + 1]; ++j) {
+            std::cout << i << " " << graph->col_indices[j] << " " << graph->edge_labels[j] << "\n";
+        }
+    }
+}
+
+void printGraph(const CsrGraph* graph, std::unordered_map<int, string>& node_map, std::unordered_map<int, string>& edge_map, const char* filename) {
+    //print to file if filename is not null else print to stdout
+    std::ofstream file;
+    if (filename) {
+        file.open(filename);
+    }
+    std::ostream& out = filename != nullptr ? file : std::cout;
+    for (int i = 0; i < graph->num_nodes; ++i) {
+        for (int j = graph->row_offsets[i]; j < graph->row_offsets[i + 1]; ++j) {
+            out << node_map[i] << " " << edge_map[graph->edge_labels[j]] << " " << node_map[graph->col_indices[j]] << "\n";
+        }
+    }
+    if (filename) {
+        file.close();
+    }
 }

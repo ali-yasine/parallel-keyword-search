@@ -1,44 +1,38 @@
 #ifndef __BFS_H__
 #define __BFS_H__
 #include "graph.h"
-#include <unordered_set>
-
-using std::unordered_set;
 
 struct Bfs_instance {
-
-    unordered_set<int> visited;  
-    unordered_set<int> frontier;
+    int num_nodes;
+    int* visited;
     
-    void init() {
-        visited = unordered_set<int>();
-        frontier = unordered_set<int>();
+    void init(int num_nodes) {
+        this->num_nodes = num_nodes;
+        visited = (int*) calloc(num_nodes, sizeof(int));
     }
 
     void add(int node) {
-        frontier.insert(node);
+        visited[node] = 1;
     }
 
-    void remove(int node) {
-        frontier.erase(node);
-        visited.insert(node);
-    }
-
-    int frontier_size() {
-        return frontier.size();
-    }
-
-    int visited_size() {
-        return visited.size();
+    int size() {
+        int count = 0;
+        for (int i = 0; i < this->num_nodes; ++i) {
+            if (visited[i] == 1) {
+                count++;
+            }
+        }
+        return count;
     }
 
     bool is_visited(int node) {
-        return visited.find(node) != visited.end();
+        return visited[node] == 1;
     }
 
-    bool is_frontier(int node) {
-        return frontier.find(node) != frontier.end();
+    void destroy() {
+        free(visited);
     }
+
 };
 
 #endif

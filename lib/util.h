@@ -2,9 +2,23 @@
 #define UTIL_H
 #include <string>
 #include <vector>
+#include <random>
 #include <unordered_map>
+#include "graph.h"
 
 
+class RandomGen {
+    private:
+        std::mt19937 gen;
+        std::uniform_int_distribution<int> dist;
+    public:
+        RandomGen(int min, int max) {
+            std::random_device rd;
+            gen = std::mt19937(rd());
+            dist = std::uniform_int_distribution<int>(min, max);
+        }
+        int operator()() { return dist(gen); }
+};
 
 void getQueryVertices(const std::vector<std::string>& query,
                       const std::unordered_map<int, std::string>& node_map,
@@ -12,12 +26,16 @@ void getQueryVertices(const std::vector<std::string>& query,
                       std::vector<std::vector<int>>& query_vertices);
 
 
-int getActivationLevel(float node_weight, float alpha, float avg_hops);
-
-
-void identify_central(const num_nodes, int* C_identifier, const int* F_identifier, const  int* M,
-                const int query_num);
+void identify_central(const int num_nodes, int* C_identifier, 
+                      const int* F_identifier, const  int* M, const int query_num);
 
 void enqueue_frontier(const int num_nodes, int* F_identifier, int* frontier, int& frontier_size);
+
+bool is_keyword(int node, const std::vector<std::vector<int>>& keyword_nodes);
+
+void getMinActivations(const float* node_weights, const int num_nodes, 
+                       const float alpha, const float avg_hops, int* min_activations);
+                       
+float score(const CooGraph* graph, const int central_node, const float* node_weights, const int* M, const int query_num, const float lambda=0.2f);
 
 #endif

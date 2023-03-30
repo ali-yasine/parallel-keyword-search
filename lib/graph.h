@@ -21,17 +21,6 @@ struct CsrGraph {
     int* row_offsets;
     int* col_indices;
     int* edge_labels;
-
-    int getEdgeLabel(int src, int dst) {
-        if (src == dst) 
-            return 0;
-        
-        for(int i = row_offsets[src]; i < row_offsets[src + 1]; ++i)
-            if(col_indices[i] == dst)
-                return edge_labels[i];
-                
-        return INT_MAX; 
-    }
 };
 
 struct CSCMatrix {
@@ -49,5 +38,13 @@ void readGraph(const char* filename, CooGraph* graph, std::unordered_map<int, st
 void freeGraph(CooGraph* graph);
 
 void freeGraph(CsrGraph* graph);
+
+void printGraph(const CsrGraph* graph);
+
+void printGraph(const CooGraph* graph);
+
+void printGraph(const CooGraph* graph, std::unordered_map<int, string>& node_map, std::unordered_map<int, string>& edge_map, const char* filename = nullptr);
+
+void printGraph(const CsrGraph* graph, std::unordered_map<int, string>& node_map, std::unordered_map<int, string>& edge_map, const char* filename = nullptr);
 
 #endif  

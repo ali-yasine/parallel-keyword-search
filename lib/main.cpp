@@ -1,21 +1,27 @@
 #include <iostream>
-#include "graph.h"
-#include "index.h"
-#include "pks.h"
 #include <unordered_map>
 #include <string>
 #include <cstring>
 #include <fstream>
+#include "graph.h"
+#include "index.h"
+#include "pks.h"
+#include "util.h"
+
 
 int main(int argc, char** argv) {
-    
-    char filename[100];
-    if (argc > 1) {
-        strcpy(filename, argv[1]);
-    } else {
-        strcpy(filename, "data/euler.txt");
+
+    std::vector<std::string> query;
+    if (argc  < 2) {
+        query = {"Euler", "Abigail", "Katharina"};
+    }
+    else {
+        for (int i = 1; i < argc; ++i) {
+            query.push_back(argv[i]);
+        }
     }
 
+    const char* filename = "data/euler.txt";
 
     //init variables
     CooGraph* graph_coo = (CooGraph*) malloc(sizeof(CooGraph));
@@ -32,25 +38,35 @@ int main(int argc, char** argv) {
     cooToCSR(graph_coo, graph);
 
 
-    //parse query
-    int query_num = (argc > 2) ? atoi(argv[2]) : 3;
-
-    std::vector<std::string> query {"Euler", "Thesis", "Title"};
+    //init query vertices
     std::vector<std::vector<int>> keyword_nodes {};
 
     getQueryVertices(query, node_map, graph->num_nodes, keyword_nodes);
     
     //init result and hyperparameters
-    CsrGraph** results = (CsrGraph**) malloc(sizeof(CsrGraph*));
+    int k = 1;
+    float alpha = 0.1f;
     
-    int k = 5;
-    float alpha = 0.01;
+    CooGraph** results = (CooGraph**) malloc(sizeof(CooGraph*) * k);
     
     //run pks
     pks(graph, keyword_nodes, results, k, alpha);
 
-    
+    //print results
+    for(int i = 0; i < k; ++i) {
+        std::cout << "\033[1;32m wrote result to result.txt";
+        //reset color
+        std::cout << "\033[0m";
+        printGraph(results[i], node_map, edge_map, "result.txt");
+    }
+
+    for(int i = 0; i < k; ++i) {
+        freeGraph(results[i]);
+    }
+
+    free(results);
     freeGraph(graph_coo);
     freeGraph(graph);
+
     return 0;
 }
