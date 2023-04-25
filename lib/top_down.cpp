@@ -132,8 +132,90 @@ void topdown_construct(const CsrGraph* graph, CooGraph** result, const int* C_id
 }
 
 
-void level_cover(CooGraph* graph ) {
-    //TODO
+void level_cover(const CooGraph* graph, const std::vector<std::vector<int>> keyword_nodes, const int central_node) {
+    std::unordered_map<int, int> keyword_count {};
+    std::unordered_set<int> visited {};
+    int max_count = 0;
+
+    CooGraph* result = (CooGraph*) malloc(sizeof(CooGraph));
+    result->row_indices = (int*) malloc(graph->num_edges * sizeof(int));
+    result->col_indices = (int*) malloc(graph->num_edges * sizeof(int));
+    result->edge_labels = (int*) malloc(graph->num_edges * sizeof(int));
+    result->num_edges = 0;
+    result->num_nodes = 0;
+    for(int src = 0; src < graph->num_edges; ++src) {
+        if (visited.find(src) != visited.end()) {
+            for(int keyword = 0; keyword < keyword_nodes.size(); ++keyword) {
+                if (keyword_nodes[keyword].find(src) != keyword_nodes[keyword].end()) {
+                    if (keyword_count[src]++ > max_count) 
+                        max_count = keyword_count[src];
+                }
+            }
+            visited.insert(src);
+        }
+    }
+    visited.clear();
+
+    std::unordered_set<int> cover_nodes {};
+
+    std::vector<std::unordered_set<int>> levels(max_count + 1);
+    for (auto it = keyword_count.begin(); it != keyword_count.end(); ++it) {
+        if (it->first != central_node) 
+            levels[it->second].insert(it->first);
+        else
+            levels[max_count].insert(it->first);
+    }
+
+    bool* covered = (bool*) calloc(keyword_nodes.size(), sizeof(bool));
+    
+    int levels_to_cover = 0;
+
+    for(int level = max_count; level > 0; --level) {
+        for (auto it = levels[level].begin(); it != levels[level].end(); ++it) {
+            cover_nodes.insert(*it);
+            for(int keyword = 0; keyword < keyword_nodes.size(); ++keyword) {
+                if (keyword_nodes[keyword].find(*it) != keyword_nodes[keyword].end()) {
+                    if (!covered[keyword]) {
+                        covered[keyword] = true;
+                        break;
+                    }
+                }
+            }
+        }
+        //if all keywords are covered, stop
+        if (std::all_of(covered, covered + keyword_nodes.size(), [](bool b) {return b;})) {
+            levels_to_cover = level;
+            break;
+        }
+    }
+    
+    free(covered);
+
+    result->num_nodes = cover_nodes.size();
+    //prune levels that are not needed
+    for (int edge = 0; edge < graph->num_edges; ++edge) {
+        int src = graph->row_indices[edge];
+        int dst = graph->col_indices[edge];
+        
+        if (cover_nodes.find(src) != cover_nodes.end() && cover_nodes.find(dst) != cover_nodes.end()) {
+            result->row_indices[result->num_edges] = src;
+            result->col_indices[result->num_edges] = dst;
+            result->edge_labels[result->num_edges++] = graph->edge_labels[edge];
+        }
+    }
+
+    result->row_indices = (int*) realloc(result->row_indices, result->num_edges * sizeof(int));
+    result->col_indices = (int*) realloc(result->col_indices, result->num_edges * sizeof(int));
+    result->edge_labels = (int*) realloc(result->edge_labels, result->num_edges * sizeof(int));
+
+    if (!result->row_indices || !result->col_indices || !result->edge_labels) {
+        freeGraph(result);
+        std::cerr << "Memory allocation failed at level_cover\n";
+        return;
+    }
+
+    freeGraph(graph);
+    graph = result;
 }
 
 #undef INF

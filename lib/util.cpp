@@ -10,7 +10,6 @@
 #include "util.h"
 #define INF std::numeric_limits<int>::max()
 
-
 #include <random>
 
 
