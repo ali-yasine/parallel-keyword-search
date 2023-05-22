@@ -3,3 +3,17 @@ test.py
 wikidata-20170213-all.json.gz
 wikidata.json
 lib/data/euler.txt
+mapping_output.txt
+parse.sh
+*.out
+*.py
+*.txt
+*.cpp
+*.o
+*.txt
+pks
+lib/index/graph.txt
+seq_backup/*
+lib/index/*
+lib/data/*
+*.exe

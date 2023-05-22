@@ -3,6 +3,10 @@
 #include <sstream>
 #include <wchar.h>
 #include <locale.h>
+#include <algorithm>
+#include <string>
+#include <vector>
+
 #include <unordered_map>
 #include "graph.h"
 
@@ -53,21 +57,60 @@ void cooToCSR(const CooGraph* coo, CsrGraph* graph) {
 
 }
 
-void readGraph(const char* filename, CooGraph* graph, std::unordered_map<int, string>* node_map, std::unordered_map<string, int>* node_map_reverse, std::unordered_map<int, string>* edge_map, std::unordered_map<string, int>* edge_map_reverse) {
-    
+void writeCooToFile(const CooGraph* graph, const char* filename) {
+    std::ofstream file(filename);
+
+    file << graph->num_nodes << " " << graph->num_edges << "\n";
+
+    for (int i = 0; i < graph->num_edges; i++) {
+        file << graph->row_indices[i] << " " << graph->edge_labels[i] << " " << graph->col_indices[i] << "\n";
+    }
+
+    file.close();
+}
+
+void readCooFromFile(CooGraph* graph, const char* filename) {
+    std::ifstream file(filename);
+
+    file >> graph->num_nodes >> graph->num_edges;
+
+    graph->row_indices = (int *) malloc(graph->num_edges * sizeof(int));
+    graph->col_indices = (int *) malloc(graph->num_edges * sizeof(int));
+    graph->edge_labels = (int *) malloc(graph->num_edges * sizeof(int));
+
+    for (int i = 0; i < graph->num_edges; i++) {
+        file >> graph->row_indices[i] >> graph->edge_labels[i] >> graph->col_indices[i];
+    }
+    file.close();
+}
+
+//TODO: optimize to read chunks of the file at a time
+void readGraph(const char* filename, CooGraph* graph, std::unordered_map<int, string>* node_map, std::unordered_map<string, int>* node_map_reverse, std::unordered_map<int, string>* edge_map, std::unordered_map<string, int>* edge_map_reverse, std::unordered_map<int,std::string>* label_nodes, int num_nodes, int num_edges, bool is_undirected) {
+
     // Open file
-    fstream file {filename};
+    std::fstream file {filename};
     if (!file.is_open()) {
         std::cerr << "Error opening file " << filename << "\n";
         exit(1);
     }
-
-
-    int num_edges {0};
+    
+    graph->num_nodes = num_nodes;
+    graph->num_edges = num_edges;
+    int curr_edge = 0;
+    graph->row_indices = (int*) malloc(num_edges * sizeof(int));
+    graph->col_indices = (int*) malloc(num_edges * sizeof(int));
+    graph->edge_labels = (int*) malloc(num_edges * sizeof(int));
+    
     int next_node_id = 0, next_edge_label = 0;
     string line, subj, pred, edge;
 
     while (std::getline(file, line)) {
+
+        if (line.empty()) {
+            continue;
+        }
+
+        line.pop_back();
 
         stringstream ss {line};
         ss >> subj >> edge;
@@ -94,51 +137,29 @@ void readGraph(const char* filename, CooGraph* graph, std::unordered_map<int, st
             edge_map_reverse->insert({edge, next_edge_label});
             next_edge_label++;
         }
-        num_edges++;
-
-    }
-
-    // Close file
-    file.close();
-
-    // Initialize graph
-    graph->num_nodes = next_node_id;
-    num_edges = 2 * num_edges;
-    graph->num_edges = num_edges;
-    graph->row_indices = (int*) malloc(num_edges * sizeof(int));
-
-    //2 * since we count both directions of edges
-    graph->col_indices = (int*) malloc(num_edges * sizeof(int));
-    graph->edge_labels = (int*) malloc(num_edges * sizeof(int));
-    
-    file = fstream {filename};
-    int curr_edge = 0;
-
-    while (std::getline(file, line)) {
         
-    
-        stringstream ss {line};
-        ss >> subj >> edge;
-        std::getline(ss, pred);
-        
-        if (pred == "" || pred == " ") {
-            continue;
-        }
-
         int subj_id = node_map_reverse->at(subj);
         int pred_id = node_map_reverse->at(pred);
         int edge_id = edge_map_reverse->at(edge);
-        
+
+        //check if edge is a label edge 
+        if (edge.find("label") != std::string::npos || edge.find("alias") != std::string::npos) {
+            std::transform(pred.begin(), pred.end(), pred.begin(), ::tolower);
+            label_nodes->insert({pred_id, pred});
+        }
+
         graph->row_indices[curr_edge] = subj_id;
         graph->col_indices[curr_edge] = pred_id;
         graph->edge_labels[curr_edge++] = edge_id;
 
-        graph->row_indices[curr_edge] = pred_id;
-        graph->col_indices[curr_edge] = subj_id;
-        graph->edge_labels[curr_edge++] = edge_id;
+        if (is_undirected) {
+            graph->row_indices[curr_edge] = pred_id;
+            graph->col_indices[curr_edge] = subj_id;
+            graph->edge_labels[curr_edge++] = edge_id;
+        }
     }
-
     file.close();
+    std::cerr << "Finished reading graph (" << "nodes: " << graph->num_nodes << ", edges: " << graph->num_edges << ")\n" ;
 }
 
 void freeGraph(CooGraph* graph) {
@@ -165,16 +186,18 @@ void printGraph(const CooGraph* graph) {
     }
 }
 
-void printGraph(const CooGraph* graph, std::unordered_map<int, string>& node_map, std::unordered_map<int, string>& edge_map, const char* filename) {
-    //print to file if filename is not null else print to stdout
-    std::ofstream file;
+void printGraph(const CooGraph* graph, std::unordered_map<int, string>& node_map, std::unordered_map<int, string>& edge_map, const char* filename) {   std::ofstream file;
     if (filename) {
-        file.open(filename);
+        // Open the file in append mode
+        file.open(filename, std::ofstream::app);
     }
     std::ostream& out = filename != nullptr ? file : std::cout;
     for (int i = 0; i < graph->num_edges; i += 2) {
         out << node_map[graph->row_indices[i]] << " " << edge_map[graph->edge_labels[i]] << " " << node_map[graph->col_indices[i]] << "\n";
     }
+
+    out << "-------------------\n";
+
     if (filename) {
         file.close();
     }

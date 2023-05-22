@@ -23,17 +23,9 @@ struct CsrGraph {
     int* edge_labels;
 };
 
-struct CSCMatrix {
-    int num_nodes;
-    int num_edges;
-    int* col_offsets;
-    int* row_indices;
-    int* edge_labels;
-};
-
 void cooToCSR(const CooGraph* coo, CsrGraph* graph);
 
-void readGraph(const char* filename, CooGraph* graph, std::unordered_map<int, string>* node_map, std::unordered_map<string, int>* node_map_reverse, std::unordered_map<int, string>* edge_map, std::unordered_map<string, int>* edge_map_reverse);
+void readGraph(const char* filename, CooGraph* graph, std::unordered_map<int, string>* node_map, std::unordered_map<string, int>* node_map_reverse, std::unordered_map<int, string>* edge_map, std::unordered_map<string, int>* edge_map_reverse, std::unordered_map<int, std::string>* label_nodes, int num_nodes, int num_edges, bool is_undirected = false);
 
 void freeGraph(CooGraph* graph);
 

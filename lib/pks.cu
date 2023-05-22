@@ -13,36 +13,23 @@
 #include "pks.h"
 #include "util.h"
 #include "index.h"
-#include "Bfs.h"
+#include "timer.h"
 #include "top_down.h"
 
-#define INF std::numeric_limits<int>::max()
+#define INF 2147483647
 
-
-void pks(const CsrGraph* graph, const std::vector<std::vector<int>> keyword_nodes, CooGraph** result, const int k, const float alpha, const char* filename) {
+void pks(const CsrGraph* graph, const std::vector<std::unordered_set<int>>& keyword_nodes, 
+        CooGraph** result, const int k, const float alpha, const float* node_weights, const int* min_activations, const float avg_hops) {
     
     
     std::cerr << "starting pks\n";
-
+    Timer timer;
     int query_num = keyword_nodes.size();
     int num_nodes = graph->num_nodes;
-    float* node_weights = (float*) calloc(num_nodes, sizeof(float));
-    float avg_hops = 0;
-
-    if (filename) 
-        readGraphIndex(filename, node_weights, avg_hops, num_nodes);
-    else {
-        getVertexInformativeness(graph, node_weights);
-        avg_hops = averageDistanceInGraph(graph);
-        writeGraphIndex("index/graph.txt", node_weights, avg_hops, num_nodes);
-    }
-
-    int* min_activations = (int*) calloc(num_nodes, sizeof(int));
-    getMinActivations(node_weights, num_nodes, alpha, avg_hops, min_activations);
     
     //initialize F,C and M the node-keyword matrix
-    int* F_identifier = (int*) calloc(num_nodes, sizeof(int));
-    int* C_identifier = (int*) calloc(num_nodes, sizeof(int));
+    bool* F_identifier = (bool*) calloc(num_nodes, sizeof(bool));
+    bool* C_identifier = (bool*) calloc(num_nodes, sizeof(bool));
     int* M = (int*) malloc(num_nodes * query_num * sizeof(int)); 
 
     if (!F_identifier || !C_identifier || !M) {
@@ -56,11 +43,8 @@ void pks(const CsrGraph* graph, const std::vector<std::vector<int>> keyword_node
 
     //put every query vertex into BFS instances
     for (int i = 0; i < query_num; ++i) {
-        for (int j = 0; j < keyword_nodes[i].size(); ++j) {
-
-            int node = keyword_nodes[i][j];
-            
-            F_identifier[node] = 1;
+        for (int node : keyword_nodes[i]) {
+            F_identifier[node] = true;
             M[node * query_num + i] = 0;
         }
     }
@@ -68,7 +52,7 @@ void pks(const CsrGraph* graph, const std::vector<std::vector<int>> keyword_node
     int BFS_level = 0;
     bool terminate = false;
     
-    int* frontier = (int*) calloc(num_nodes, sizeof(int));
+    bool* frontier = (bool*) calloc(num_nodes, sizeof(bool));
     
     if (!frontier) {
         std::cerr << "cannot allocate frontier memory\n";
@@ -76,43 +60,44 @@ void pks(const CsrGraph* graph, const std::vector<std::vector<int>> keyword_node
     }
     
     int frontier_size = 0;
-    std::cerr << "starting expansion loop\n";
     //print F_identifier
     
-    while (!terminate) {
+    bool* is_keyword_arr = (bool*) calloc(num_nodes, sizeof(bool));
 
+    for (int i = 0; i < query_num; ++i) {
+        for (int node : keyword_nodes[i]) {
+            is_keyword_arr[node] = true;
+        }
+    }
+
+    startTime(&timer);
+    while (!terminate) {
         enqueue_frontier(num_nodes, F_identifier, frontier,  frontier_size);
 
-        expand(graph, frontier,  F_identifier, M, C_identifier, min_activations, BFS_level, alpha, avg_hops, keyword_nodes, query_num);
+        expand(graph, frontier,  F_identifier, M, C_identifier, min_activations, BFS_level, alpha, avg_hops, is_keyword_arr, query_num);
 
         identify_central(num_nodes, C_identifier, F_identifier, M, query_num);
 
         BFS_level++;
 
-        for(int i = 0; i < num_nodes; ++i){
-            frontier[i] = 0;
-        }
+        dequeue_frontier(frontier, frontier_size, num_nodes);
 
-        frontier_size = 0;
-
-        if (std::accumulate(C_identifier, C_identifier + num_nodes, 0) >= k)
-            terminate = true;       
+        terminate = check_terminate(C_identifier, num_nodes, k);
     }
 
+    stopTime(&timer);
+    printElapsedTime(timer, "expansion cpu time: ");
     
     std::cerr << "start topdown construct\n";
     topdown_construct(graph, result, C_identifier, M, query_num, k, keyword_nodes, min_activations, node_weights);
     
-
     free(F_identifier);
     free(C_identifier);
     free(M);
     free(frontier);
-    free(min_activations);
 }
 
-void expand(const CsrGraph* graph, const int* frontier, int* F_identifier, int* M, int* C_identifier, const int* min_activations, 
-            int bfs_level, int alpha, float avg_hops, const std::vector<std::vector<int>> keyword_nodes, int query_num) {
+void expand(const CsrGraph* graph, const bool* frontier, bool* F_identifier, int* M, bool* C_identifier, const int* min_activations, int bfs_level, const float alpha, const float avg_hops,  bool* keyword_nodes, int query_num) {
                 
     for(int curr_node = 0; curr_node < graph->num_nodes; ++curr_node) {
 
@@ -124,7 +109,7 @@ void expand(const CsrGraph* graph, const int* frontier, int* F_identifier, int* 
             int min_activation_level = min_activations[curr_node];
 
             if (min_activation_level > bfs_level) {
-                F_identifier[curr_node] = 1;
+                F_identifier[curr_node] = true;
                 continue;
             }
 
@@ -146,22 +131,20 @@ void expand(const CsrGraph* graph, const int* frontier, int* F_identifier, int* 
                     
                     //check if the neighbor is not a keyword node
 
-                    if (!is_keyword(neighbor_id, keyword_nodes)) {
-
+                    if (!keyword_nodes[neighbor_id]) {
+                        
                         int neighbor_activation_level = min_activations[neighbor_id];
                         if (neighbor_activation_level > bfs_level + 1) {
-                            F_identifier[curr_node] = 1;
+                            F_identifier[curr_node] = true;
                             continue;
                         }
                     }
-                    
                     M[neighbor_id * query_num + bfs_instance] = bfs_level + 1;
-                    F_identifier[neighbor_id] = 1;
+                    F_identifier[neighbor_id] = true;
                 }
             }
         }   
     }
 }
-
 
 #undef INF

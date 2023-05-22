@@ -1,0 +1,6 @@
+cd to lib 
+compile using make
+
+then run pks
+
+wait a bit for the graph to be read before entering queries.
