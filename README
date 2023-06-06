@@ -1,6 +1,30 @@
-cd to lib 
-compile using make
+Parallel Keyword Search
 
-then run pks
+This repository contains an implementation of a GPU parallelized algorithm based on the paper An Efficient Parallel Keyword Search Engine on
+Knowledge Graphs by (Yang et al.) .
+The algorithm is designed to take input keywords from the user and search over a knowledge graph to find k meaningful subgraphs that connect the keywords together.
 
-wait a bit for the graph to be read before entering queries.
+Installation
+To use this algorithm, you need to have the following dependencies installed:
+
+CUDAC++ 
+GCC (>= 10.1.0)
+
+You can install the algorithm by following these steps:
+
+Clone this repository: git clone https://github.com/ali-yasine/parallel-keyword-search.git
+Navigate to the project directory: cd parallel-keyword-search
+Navigate to lib: cd lib
+Compile the code: make
+
+Usage:
+
+./pks
+
+This will initialize the program by reading the graph specified and constructing an informativeness index if one is not found.
+
+After initilization is done the program will keep reading inputs from the user and will write the result to the corresponding txt file. 
+
+
+Original paper:
+The psuedocode and the original paper can be found here: https://www.comp.nus.edu.sg/~atung/publication/wikisearch.pdf
