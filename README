@@ -14,7 +14,6 @@ You can install the algorithm by following these steps:
 
 Clone this repository: git clone https://github.com/ali-yasine/parallel-keyword-search.git
 Navigate to the project directory: cd parallel-keyword-search
-Navigate to lib: cd lib
 Compile the code: make
 
 Usage:

@@ -1,1 +1,23 @@
-//TODO
+
+NVCC        = nvcc
+NVCC_FLAGS  = -std=c++17
+OBJ_DIR    = lib
+OBJ        = $(OBJ_DIR)/main.o $(OBJ_DIR)/pks.o $(OBJ_DIR)/top_down.o $(OBJ_DIR)/util.o $(OBJ_DIR)/graph.o $(OBJ_DIR)/index.o $(OBJ_DIR)/pks_kernel.o $(OBJ_DIR)/gpu_util.o $(OBJ_DIR)/pks_bitwise.o
+EXE         = pks
+OPT_LEVEL   = -O3
+
+ifeq ($(debug), 1)
+        NVCC_FLAGS += -g -G
+        OPT_LEVEL = -O0
+endif
+
+default: $(EXE)
+
+$(OBJ_DIR)/%.o: $(OBJ_DIR)/%.cu
+        $(NVCC) $(NVCC_FLAGS) -c -o $@ $<
+
+$(EXE): $(OBJ)
+        $(NVCC) $(NVCC_FLAGS) $(OPT_LEVEL) $(OBJ) -o $(EXE)
+
+clean:
+        rm -rf $(OBJ) $(EXE)
